@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modification
+        xmlns="https://github.com/vqmod/vqmod"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="https://github.com/vqmod/vqmod https://raw.githubusercontent.com/vqmod/vqmod/master/vqmod.xsd"
+>
+    <id>Alter file manager for usage with S3</id>
+    <version>3.0.x and above</version>
+    <vqmver required="true">2.6.0</vqmver>
+    <author>Matthew T-D</author>
+
+    <file name="admin/controller/common/filemanager.php">
+        <operation info="manage images via s3">
+            <search position="before"><![CDATA[$data['user_token'] = $this->session->data['user_token'];]]></search>
+            <add><![CDATA[
+            $this->load->model('setting/setting');
+            if ($this->model_setting_setting->getSettingValue('module_aws_s3_status')) {
+                $data['images'] = $this->getObjectsFromS3($directory);
+            }
+            ]]></add>
+        </operation>
+
+        <operation info="manage images via s3">
+            <search position="before"><![CDATA[public function delete() {]]></search>
+            <add><![CDATA[
+        private function getObjectsFromS3($directory): array
+        {
+            $bucketDir = $directory . '/';
+            $this->load->library('s3images/s3images');
+            $s3Images = new S3images\S3images();
+
+            $items = [];
+
+            foreach ($s3Images->listDirectories($bucketDir) as $remoteDirectory) {
+                $url = '';
+
+                if (isset($this->request->get['target'])) {
+                    $url .= '&target=' . $this->request->get['target'];
+                }
+
+                if (isset($this->request->get['thumb'])) {
+                    $url .= '&thumb=' . $this->request->get['thumb'];
+                }
+
+                $items[] = [
+                    'thumb' => '',
+                    'name' => $remoteDirectory['name'],
+                    'type' => 'directory',
+                    'path' => $remoteDirectory['path'],
+                    'href' => $this->url->link(
+                        'common/filemanager',
+                        'user_token=' . $this->session->data['user_token'] . '&directory=' . urlencode(utf8_substr($remoteDirectory['path'], utf8_strlen('catalog/'))) . $url,
+                        true
+                    ),
+                ];
+            }
+
+            foreach ($s3Images->listImages($bucketDir) as $remoteImage) {
+
+                $items[] = [
+                    'thumb' => $this->model_tool_image->resize($remoteImage['path'], 100, 100),
+                    'name'  => $remoteImage['name'],
+                    'type'  => 'image',
+                    'path'  => $remoteImage['path'],
+                    'href'  => $remoteImage['href'],
+                ];
+            }
+
+            return $items;
+        }
+            ]]></add>
+        </operation>
+
+        <operation info="create a new folder">
+            <search position="before" index="2"><![CDATA[// Check its a directory]]></search>
+            <add><![CDATA[
+            $this->load->model('setting/setting');
+            if ($this->model_setting_setting->getSettingValue('module_aws_s3_status')) {
+                try {
+                    $this->createNewDirectoryInS3($directory);
+
+                    $json['success'] = $this->language->get('text_directory');
+                } catch(\Exception $e) {
+                    $json['error'] = $this->language->get('error_exists');
+                }
+
+                $this->response->addHeader('Content-Type: application/json');
+		        $this->response->setOutput(json_encode($json));
+
+		        return;
+            }
+            ]]></add>
+        </operation>
+
+        <operation info="create a new folder">
+            <search position="before"><![CDATA[public function delete() {]]></search>
+            <add><![CDATA[
+        private function createNewDirectoryInS3($currentDirectory)
+        {
+            // Sanitised folder name
+			$folder = basename(html_entity_decode($this->request->post['folder'], ENT_QUOTES, 'UTF-8'));
+
+			$fullPath = $currentDirectory . '/' . $folder;
+
+            $this->load->library('s3images/s3images');
+            $s3Images = new S3images\S3images();
+
+            $s3Images->createFolder($fullPath);
+        }
+            ]]></add>
+        </operation>
+
+        <operation info="Upload files">
+            <search position="before" index="1"><![CDATA[// Check its a directory]]></search>
+            <add><![CDATA[
+            $this->load->model('setting/setting');
+            if ($this->model_setting_setting->getSettingValue('module_aws_s3_status')) {
+                $json['presigned_urls'] = $this->getPreSignedUrls($directory);
+
+                $this->response->addHeader('Content-Type: application/json');
+                $this->response->setOutput(json_encode($json));
+
+                return;
+            }
+            ]]></add>
+        </operation>
+
+        <operation info="Upload files">
+            <search position="before"><![CDATA[public function delete() {]]></search>
+            <add><![CDATA[
+            private function getPreSignedUrls($currentDirectory): array
+            {
+                $this->load->library('s3images/s3images');
+                $s3Images = new S3images\S3images();
+
+                $urls = [];
+
+                foreach ($this->request->post['file'] as $file) {
+                    // Sanitize the filename
+                    $filename = basename(html_entity_decode($file, ENT_QUOTES, 'UTF-8'));
+
+                    $urls[] = $s3Images->generateSignedUploadUrl($currentDirectory . '/' . $filename);
+                }
+
+                return $urls;
+            }
+            ]]></add>
+        </operation>
+
+        <operation info="add S3 module status JS variable">
+            <search position="before"><![CDATA[$this->response->setOutput($this->load->view('common/filemanager', $data));]]></search>
+            <add><![CDATA[
+            $this->load->model('setting/setting');
+
+            $data['aws_s3_status'] = $this->model_setting_setting->getSettingValue('module_aws_s3_status');
+            ]]></add>
+        </operation>
+
+        <operation info="delete files and folders">
+            <search position="before"><![CDATA[// Loop through each path to run validations]]></search>
+            <add><![CDATA[
+            $this->load->model('setting/setting');
+            if ($this->model_setting_setting->getSettingValue('module_aws_s3_status')) {
+                $this->load->library('s3images/s3images');
+                $s3Images = new S3images\S3images();
+
+                foreach ($paths as $path) {
+                    $s3Images->deleteObject($path);
+                }
+
+                $json['success'] = $this->language->get('text_delete');
+
+                $this->response->addHeader('Content-Type: application/json');
+                $this->response->setOutput(json_encode($json));
+
+                return;
+            }
+            ]]></add>
+        </operation>
+
+    </file>
+
+    <file name="admin/view/template/common/filemanager.twig">
+        <operation info="allow multiple uploads to s3">
+            <search position="after"><![CDATA[$('#form-upload input[name=\'file[]\']').trigger('click');]]></search>
+            <add><![CDATA[
+            {% if aws_s3_status %}
+                $('body').find('#form-upload').on('change', 'input[name="file[]"]', function (e) {
+                  var uploadedFilenames = new FormData();
+
+                  $.each(e.target.files, function (index, file) {
+                    uploadedFilenames.append('file[]', file.name);
+                  });
+
+                  $.ajax({
+                    url: 'index.php?route=common/filemanager/upload&user_token={{ user_token }}&directory={{ directory }}',
+                    type: 'post',
+                    data: uploadedFilenames,
+                    processData: false,
+                    contentType: false,
+                    success: function (results) {
+                      $.each(results.presigned_urls, function (index, signedUrl) {
+                        var file = e.target.files[index];
+
+                        //todo: Promises/progress indicator
+                        var xhr = new XMLHttpRequest();
+
+                        xhr.open('PUT', signedUrl);
+                        xhr.setRequestHeader('Access-Control-Allow-Headers', '*');
+                        xhr.send(file);
+                      });
+
+                      //todo: Promises/progress indicator
+                      setTimeout(function () {
+                        $('#button-refresh').trigger('click');
+                      }, 2000);
+                    }
+                  });
+                });
+
+                return;
+            {% endif %}
+            ]]></add>
+        </operation>
+    </file>
+
+</modification>

@@ -1,0 +1,38 @@
+Type: AWS::IAM::Role
+Properties:
+  AssumeRolePolicyDocument:
+    Statement:
+      - Effect: Allow
+        Action: sts:AssumeRole
+        Principal:
+          Service: lambda.amazonaws.com
+    Version: '2012-10-17'
+  Policies:
+    - PolicyName: CanLog
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:CreateLogGroup
+              - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+    - PolicyName: UploadedImageBucketAccess
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:ListBucket
+              - s3:GetObject
+              - s3:DeleteObject
+              - s3:PutObject
+              - s3:PutObjectAcl
+            Resource:
+              - !GetAtt UploadedImageBucket.Arn
+              - !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref UploadedImageBucket
+                  - /*

@@ -1,0 +1,23 @@
+Type: AWS::S3::Bucket
+Properties:
+  BucketName: !Join
+    - "-"
+    - - "opencart-uploaded-images"
+      - !Select
+        - 0
+        - !Split
+          - "-"
+          - !Select
+            - 2
+            - !Split
+              - "/"
+              - !Ref "AWS::StackId"
+  CorsConfiguration:
+    CorsRules:
+      - AllowedHeaders: ["*"]
+        AllowedMethods: [GET]
+        AllowedOrigins: ["*"]
+
+      - AllowedHeaders: ["*"]
+        AllowedMethods: [PUT, POST]
+        AllowedOrigins: ["https://${self:custom.DOMAIN}"]

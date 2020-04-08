@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modification
+        xmlns="https://github.com/vqmod/vqmod"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="https://github.com/vqmod/vqmod https://raw.githubusercontent.com/vqmod/vqmod/master/vqmod.xsd"
+>
+    <id>Resize images and upload to S3</id>
+    <version>3.0.x and above</version>
+    <vqmver required="true">2.6.0</vqmver>
+    <author>Matthew T-D</author>
+
+    <file name="admin/model/tool/image.php,catalog/model/tool/image.php" error="skip">
+        <operation error="skip" info="Add method to resize images and upload them to s3">
+            <search position="before"><![CDATA[public function resize($filename, $width, $height) {]]></search>
+            <add><![CDATA[
+        static private $images = [];
+
+        private function getResizedImageFromS3($filename, $width, $height) {
+            if ($filename === '') {
+                $filename = 'no_image.png';
+            }
+            $extension = pathinfo($filename, PATHINFO_EXTENSION);
+
+            $image_old = $filename;
+            $image_new = 'cache/' . utf8_substr($filename, 0, utf8_strrpos($filename, '.')) . '-' . $width . 'x' . $height . '.' . $extension;
+            $cachedImageBucketPath = DIR_IMAGE . $image_new;
+
+            if (isset(static::$images[$image_new])) {
+                return static::$images[$image_new];
+            }
+
+            $this->load->library('s3images/s3images');
+            $s3Images = new S3images\S3images();
+
+            if ($s3Images->hasObject($cachedImageBucketPath)) {
+                static::$images[$image_new] = HTTPS_CATALOG . DIR_IMAGE . $image_new;
+
+                return static::$images[$image_new];
+            }
+
+            try {
+                $tempFilename = $s3Images->downloadImageToTmpDir($image_old);
+            } catch (Exception $e) {
+                static::$images[$image_new] = '';
+                return static::$images[$image_new];
+            }
+
+            list($width_orig, $height_orig, $image_type) = getimagesize($tempFilename);
+
+            if (!in_array($image_type, [IMAGETYPE_PNG, IMAGETYPE_JPEG, IMAGETYPE_GIF])) {
+                return $image_old;
+            }
+
+            if ($width_orig != $width || $height_orig != $height) {
+                $image = new Image($tempFilename);
+                $image->resize($width, $height);
+                $image->save('/tmp/' . basename($image_new));
+
+                $s3Images->uploadImage($image_new, '/tmp/' . basename($image_new));
+            } else {
+                $s3Images->copyImage($image_old, $image_new);
+            }
+
+            static::$images[$image_new] = HTTPS_CATALOG . DIR_IMAGE . $image_new;
+
+            return static::$images[$image_new];
+        }
+            ]]></add>
+        </operation>
+    </file>
+
+    <file name="admin/model/tool/image.php,catalog/model/tool/image.php" error="skip">
+        <operation error="skip" info="Add method to resize images and upload them to s3">
+            <search position="after"><![CDATA[public function resize($filename, $width, $height) {]]></search>
+            <add><![CDATA[
+        $this->load->model('setting/setting');
+        if ($this->model_setting_setting->getSettingValue('module_aws_s3_status')) {
+            return $this->getResizedImageFromS3($filename, $width, $height);
+        }
+            ]]></add>
+        </operation>
+    </file>
+
+</modification>

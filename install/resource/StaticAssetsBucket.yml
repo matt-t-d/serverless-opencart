@@ -1,0 +1,19 @@
+Type: AWS::S3::Bucket
+Properties:
+  BucketName: !Join
+    - "-"
+    - - "opencart-static-assets"
+      - !Select
+        - 0
+        - !Split
+          - "-"
+          - !Select
+            - 2
+            - !Split
+              - "/"
+              - !Ref "AWS::StackId"
+  CorsConfiguration:
+    CorsRules:
+      - AllowedHeaders: ["*"]
+        AllowedMethods: [GET]
+        AllowedOrigins: ["*"]

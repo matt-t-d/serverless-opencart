@@ -1,0 +1,10 @@
+#copy/rename this to settings.yml and fill it in
+region: # aws region e.g. eu-west-1
+websiteDomain: # domain without protocol e.g. google.com
+certificateArn: # manually create the certificate in the us-east-1 region to work with cloudfront
+rdsInstanceClass: db.t2.micro # within the free tier
+rdsInstanceStorage: 20
+# todo: manage via secrets manager...
+mysqlUsername:
+mysqlPassword:
+mysqlDBName:

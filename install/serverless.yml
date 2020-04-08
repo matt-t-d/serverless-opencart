@@ -1,0 +1,110 @@
+service: app
+
+provider:
+  name: aws
+  region: ${self:custom.AWS_REGION}
+  stage: ${opt:stage, 'dev'}
+  runtime: provided
+  role: !GetAtt LambdaRole.Arn
+  environment:
+    BREF_AUTOLOAD_PATH: "/var/task/storage/vendor/autoload.php"
+    PHP_INI_SCAN_DIR: "/var/task/resource/php/"
+    MYSQL_HOST: ${self:custom.MYSQL_HOST}
+    MYSQL_PORT: ${self:custom.MYSQL_PORT}
+    MYSQL_USERNAME: ${self:custom.MYSQL_USERNAME}
+    MYSQL_PASSWORD: ${self:custom.MYSQL_PASSWORD}
+    DB_NAME: ${self:custom.DB_NAME}
+    CATALOG_DIR_APPLICATION: "/var/task/upload/catalog/"
+    CATALOG_HTTP_SERVER: "https://${self:custom.DOMAIN}/"
+    CATALOG_HTTPS_SERVER: "https://${self:custom.DOMAIN}/"
+    ADMIN_DIR_APPLICATION: "/var/task/upload/admin/"
+    DIR_SYSTEM: "/var/task/upload/system/"
+    DIR_IMAGE: "image/"
+    ADMIN_HTTP_SERVER: "https://${self:custom.DOMAIN}/admin/"
+    ADMIN_HTTPS_SERVER: "https://${self:custom.DOMAIN}/admin/"
+    DIR_LOGS: "/tmp/"
+    DIR_CACHE: "/tmp/"
+    DIR_STORAGE: "/var/task/storage/"
+    LAMBDA_ENVIRONMENT: true
+    UPLOADED_IMAGE_BUCKET: ${self:custom.UPLOADED_IMAGE_BUCKET}
+
+custom:
+  MYSQL_HOST:
+    Fn::GetAtt: [MySqlRDSInstance, Endpoint.Address]
+  MYSQL_PORT:
+    Fn::GetAtt: [MySqlRDSInstance, Endpoint.Port]
+  MYSQL_USERNAME: ${file(./resource/settings.${self:provider.stage}.yml):mysqlUsername}
+  MYSQL_PASSWORD: ${file(./resource/settings.${self:provider.stage}.yml):mysqlPassword}
+  DB_NAME: ${file(./resource/settings.${self:provider.stage}.yml):mysqlDBName}
+  DOMAIN: ${file(./resource/settings.${self:provider.stage}.yml):websiteDomain}
+  UPLOADED_IMAGE_BUCKET: !Ref UploadedImageBucket
+  STATIC_ASSETS_BUCKET: !Ref StaticAssets
+  AWS_REGION: ${file(./resource/settings.${self:provider.stage}.yml):region}
+  CERTIFICATE_ARN: ${file(./resource/settings.${self:provider.stage}.yml):certificateArn}
+  RDS_INSTANCE_CLASS: ${file(./resource/settings.${self:provider.stage}.yml):rdsInstanceClass}
+  RDS_INSTANCE_STORAGE: ${file(./resource/settings.${self:provider.stage}.yml):rdsInstanceStorage}
+
+  scripts:
+    hooks:
+      'deploy:finalize': ./resource/scripts/SyncAssets.sh
+
+plugins:
+  - ./storage/vendor/bref/bref
+  - serverless-pseudo-parameters
+  - serverless-plugin-scripts
+
+functions:
+  catalog:
+    handler: upload/index.php
+    description: 'Catalog'
+    timeout: 28
+    layers:
+      - ${bref:layer.php-74-fpm}
+    events:
+      - http: 'ANY /'
+      - http: 'ANY /{proxy+}'
+  admin:
+    handler: upload/admin/index.php
+    description: 'Admin area'
+    timeout: 28
+    layers:
+      - ${bref:layer.php-74-fpm}
+    events:
+      - http: 'ANY /admin/'
+      - http: 'ANY /admin/{proxy+}'
+
+# Exclude files from deployment
+package:
+  exclude:
+    - 'tests/**'
+    - 'upload/.git'
+    - 'upload/image/**'
+    - 'node_modules/**'
+    - 'opencart-docker/**'
+    - 'storage/cache/**'
+    - 'storage/logs/**'
+    - 'storage/session/**'
+    - 'upload/vqmod/install/**'
+
+resources:
+  Resources:
+    LambdaRole: ${file(./resource/LambdaRole.yml)}
+    ServerlessInternetGateway: ${file(./resource/ServerlessInternetGateway.yml)}
+    ServerlessVPC: ${file(./resource/ServerlessVPC.yml)}
+    ServerlessVPCGA: ${file(./resource/ServerlessVPCGA.yml)}
+    ServerlessSubnetA: ${file(./resource/ServerlessSubnetA.yml)}
+    ServerlessSubnetB: ${file(./resource/ServerlessSubnetB.yml)}
+    ServerlessSubnetC: ${file(./resource/ServerlessSubnetC.yml)}
+    ServerlessSubnetGroup: ${file(./resource/ServerlessSubnetGroup.yml)}
+    ServerlessSecurityGroup: ${file(./resource/ServerlessSecurityGroup.yml)}
+    RouteTablePublic: ${file(./resource/RouteTablePublic.yml)}
+    RoutePublic: ${file(./resource/RoutePublic.yml)}
+    RouteTableAssociationSubnetA: ${file(./resource/RouteTableAssociationSubnetA.yml)}
+    RouteTableAssociationSubnetB: ${file(./resource/RouteTableAssociationSubnetB.yml)}
+    RouteTableAssociationSubnetC: ${file(./resource/RouteTableAssociationSubnetC.yml)}
+    MySqlRDSInstance: ${file(./resource/MySqlRDSInstance.yml)}
+    StaticAssets: ${file(./resource/StaticAssetsBucket.yml)}
+    StaticAssetsBucketPolicy: ${file(./resource/StaticAssetsBucketPolicy.yml)}
+    UploadedImageBucket: ${file(./resource/UploadedImageBucket.yml)}
+    UploadedImageBucketPolicy: ${file(./resource/UploadedImageBucketPolicy.yml)}
+    WebsiteCDN: ${file(./resource/WebsiteCDN.yml)}

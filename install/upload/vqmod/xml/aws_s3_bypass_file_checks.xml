@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modification
+        xmlns="https://github.com/vqmod/vqmod"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="https://github.com/vqmod/vqmod https://raw.githubusercontent.com/vqmod/vqmod/master/vqmod.xsd"
+>
+    <id>Fix is_file on images stored in S3</id>
+    <version>3.0.x and above</version>
+    <vqmver required="true">2.6.0</vqmver>
+    <author>Matthew T-D</author>
+
+    <!-- System -->
+    <!-- todo: openbay and google shopping -->
+
+    <!-- Admin area -->
+    <file name="admin/controller/*/*.php" error="skip">
+        <operation info="add the s3 images library" error="skip">
+            <search position="after"><![CDATA[extends Controller {]]></search>
+            <add><![CDATA[
+            private $s3Images;
+
+            public function __construct($registry) {
+                parent::__construct($registry);
+
+                $this->load->model('setting/setting');
+
+                if ($this->model_setting_setting->getSettingValue('module_aws_s3_status')) {
+                    $this->load->library('s3images/s3images');
+                    $this->s3Images = new S3images\S3images();
+                }
+            }
+            ]]></add>
+        </operation>
+    </file>
+
+    <file name="admin/controller/*/*.php" error="skip">
+        <operation error="skip">
+            <search position="replace"><![CDATA[if (is_file(DIR_IMAGE . $result['image'])) {]]></search>
+            <add><![CDATA[if (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $result['image'])) || is_file(DIR_IMAGE . $result['image'])) {]]></add>
+        </operation>
+
+        <operation info="this appears in a load of admin controllers" error="skip">
+            <search position="replace"><![CDATA[if (isset($this->request->post['image']) && is_file(DIR_IMAGE . $this->request->post['image'])) {]]></search>
+            <add><![CDATA[if (isset($this->request->post['image']) && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $this->request->post['image'])) || (is_file(DIR_IMAGE . $this->request->post['image'])))) {]]></add>
+        </operation>
+        <operation info="product and etsy controller" error="skip">
+            <search position="replace"><![CDATA[if (!empty($product_info) && is_file(DIR_IMAGE . $product_info['image'])) {]]></search>
+            <add><![CDATA[if (!empty($product_info) && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $product_info['image'])) || (is_file(DIR_IMAGE . $product_info['image'])))) {]]></add>
+        </operation>
+        <operation info="product and etsy controller again" error="skip">
+            <search position="replace"><![CDATA[if (is_file(DIR_IMAGE . $product_image['image'])) {]]></search>
+            <add><![CDATA[if (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $product_image['image'])) || is_file(DIR_IMAGE . $product_image['image'])) {]]></add>
+        </operation>
+
+        <operation info="options" error="skip">
+            <search position="replace"><![CDATA[if (is_file(DIR_IMAGE . $option_value['image'])) {]]></search>
+            <add><![CDATA[if (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $option_value['image'])) || is_file(DIR_IMAGE . $option_value['image'])) {]]></add>
+        </operation>
+
+        <operation info="profile and user" error="skip">
+            <search position="replace"><![CDATA[if (!empty($user_info) && $user_info['image'] && is_file(DIR_IMAGE . $user_info['image'])) {]]></search>
+            <add><![CDATA[if (!empty($user_info) && $user_info['image'] && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $user_info['image'])) || is_file(DIR_IMAGE . $user_info['image']))) {]]></add>
+        </operation>
+    </file>
+
+    <file name="admin/controller/common/header.php" error="skip">
+        <operation error="skip">
+            <search position="before"><![CDATA[if (is_file(DIR_IMAGE . $user_info['image'])) {]]></search>
+            <add><![CDATA[
+            if ($user_info['image'] === '') {
+                $user_info['image'] = 'profile.png';
+            }
+            ]]></add>
+        </operation>
+        <operation error="skip">
+            <search position="replace"><![CDATA[if (is_file(DIR_IMAGE . $user_info['image'])) {]]></search>
+            <add><![CDATA[if (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $user_info['image'])) || is_file(DIR_IMAGE . $user_info['image'])) {]]></add>
+        </operation>
+    </file>
+
+    <file name="admin/controller/extension/payment/pp_express.php" error="skip">
+        <operation info="add the s3 images library" error="skip">
+            <search position="after"><![CDATA[extends Controller {]]></search>
+            <add><![CDATA[
+            private $s3Images;
+
+            public function __construct($registry) {
+                parent::__construct($registry);
+
+                $this->load->model('setting/setting');
+
+                if ($this->model_setting_setting->getSettingValue('module_aws_s3_status')) {
+                    $this->load->library('s3images/s3images');
+                    $this->s3Images = new S3images\S3images();
+                }
+            }
+            ]]></add>
+        </operation>
+        <operation error="skip">
+            <search position="replace"><![CDATA[if (isset($this->request->post['payment_pp_express_logo']) && is_file(DIR_IMAGE . $this->request->post['payment_pp_express_logo'])) {]]></search>
+            <add><![CDATA[if (isset($this->request->post['payment_pp_express_logo']) && ((($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $this->request->post['payment_pp_express_logo'])) || is_file(DIR_IMAGE . $this->request->post['payment_pp_express_logo'])))) {]]></add>
+        </operation>
+        <operation error="skip">
+            <search position="replace"><![CDATA[} elseif (is_file(DIR_IMAGE . $this->config->get('payment_pp_express_logo'))) {]]></search>
+            <add><![CDATA[} elseif (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $this->config->get('payment_pp_express_logo'))) || is_file(DIR_IMAGE . $this->config->get('payment_pp_express_logo'))) {]]></add>
+        </operation>
+    </file>
+
+    <file name="admin/controller/design/banner.php" error="skip">
+        <operation error="skip">
+            <search position="replace"><![CDATA[if (is_file(DIR_IMAGE . $banner_image['image'])) {]]></search>
+            <add><![CDATA[if (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $banner_image['image'])) || is_file(DIR_IMAGE . $banner_image['image'])) {]]></add>
+        </operation>
+    </file>
+
+    <file name="admin/controller/localisation/location.php" error="skip">
+        <operation error="skip">
+            <search position="replace"><![CDATA[} elseif (!empty($location_info) && is_file(DIR_IMAGE . $location_info['image'])) {]]></search>
+            <add><![CDATA[} elseif (!empty($location_info) && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $location_info['image'])) || is_file(DIR_IMAGE . $location_info['image']))) {]]></add>
+        </operation>
+    </file>
+
+    <file name="admin/controller/localisation/location.php" error="skip">
+        <operation error="skip">
+            <search position="replace"><![CDATA[} elseif (!empty($location_info) && is_file(DIR_IMAGE . $location_info['image'])) {]]></search>
+            <add><![CDATA[} elseif (!empty($location_info) && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $location_info['image'])) || is_file(DIR_IMAGE . $location_info['image']))) {]]></add>
+        </operation>
+    </file>
+
+    <!--todo: openbay-->
+
+    <file name="admin/controller/setting/store.php" error="skip">
+        <operation info="image" error="skip">
+            <search position="replace"><![CDATA[if (isset($this->request->post['config_image']) && is_file(DIR_IMAGE . $this->request->post['config_image'])) {]]></search>
+            <add><![CDATA[if (isset($this->request->post['config_image']) && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $this->request->post['config_image'])) || is_file(DIR_IMAGE . $this->request->post['config_image']))) {]]></add>
+        </operation>
+        <operation info="image" error="skip">
+            <search position="replace"><![CDATA[} elseif (isset($store_info['config_image']) && is_file(DIR_IMAGE . $store_info['config_image'])) {]]></search>
+            <add><![CDATA[} elseif (isset($store_info['config_image']) && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $store_info['config_image'])) || is_file(DIR_IMAGE . $store_info['config_image']))) {]]></add>
+        </operation>
+
+        <operation info="icon" error="skip">
+            <search position="replace"><![CDATA[if (isset($this->request->post['config_icon']) && is_file(DIR_IMAGE . $this->request->post['config_icon'])) {]]></search>
+            <add><![CDATA[if (isset($this->request->post['config_icon']) && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $this->request->post['config_icon'])) || is_file(DIR_IMAGE . $this->request->post['config_icon']))) {]]></add>
+        </operation>
+        <operation info="icon" error="skip">
+            <search position="replace"><![CDATA[} elseif (isset($store_info['config_icon']) && is_file(DIR_IMAGE . $store_info['config_icon'])) {]]></search>
+            <add><![CDATA[} elseif (isset($store_info['config_icon']) && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $store_info['config_icon'])) || is_file(DIR_IMAGE . $store_info['config_icon']))) {]]></add>
+        </operation>
+
+        <operation info="logo" error="skip">
+            <search position="replace"><![CDATA[if (isset($this->request->post['config_logo']) && is_file(DIR_IMAGE . $this->request->post['config_logo'])) {]]></search>
+            <add><![CDATA[if (isset($this->request->post['config_logo']) && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $this->request->post['config_logo'])) || is_file(DIR_IMAGE . $this->request->post['config_logo']))) {]]></add>
+        </operation>
+        <operation info="logo" error="skip">
+            <search position="replace"><![CDATA[} elseif (isset($store_info['config_logo']) && is_file(DIR_IMAGE . $store_info['config_logo'])) {]]></search>
+            <add><![CDATA[} elseif (isset($store_info['config_logo']) && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $store_info['config_logo'])) || is_file(DIR_IMAGE . $store_info['config_logo']))) {]]></add>
+        </operation>
+    </file>
+
+    <file name="admin/controller/setting/setting.php" error="skip">
+        <operation info="image" error="skip">
+            <search position="replace"><![CDATA[if (isset($this->request->post['config_image']) && is_file(DIR_IMAGE . $this->request->post['config_image'])) {]]></search>
+            <add><![CDATA[if (isset($this->request->post['config_image']) && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $this->request->post['config_image'])) || is_file(DIR_IMAGE . $this->request->post['config_image']))) {]]></add>
+        </operation>
+        <operation info="image" error="skip">
+            <search position="replace"><![CDATA[} elseif ($this->config->get('config_image') && is_file(DIR_IMAGE . $this->config->get('config_image'))) {]]></search>
+            <add><![CDATA[} elseif ($this->config->get('config_image') && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $this->config->get('config_image'))) || is_file(DIR_IMAGE . $this->config->get('config_image')))) {]]></add>
+        </operation>
+
+        <operation info="icon" error="skip">
+            <search position="replace"><![CDATA[if (isset($this->request->post['config_icon']) && is_file(DIR_IMAGE . $this->request->post['config_icon'])) {]]></search>
+            <add><![CDATA[if (isset($this->request->post['config_icon']) && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $this->request->post['config_icon'])) || is_file(DIR_IMAGE . $this->request->post['config_icon']))) {]]></add>
+        </operation>
+        <operation info="icon" error="skip">
+            <search position="replace"><![CDATA[} elseif ($this->config->get('config_icon') && is_file(DIR_IMAGE . $this->config->get('config_icon'))) {]]></search>
+            <add><![CDATA[} elseif ($this->config->get('config_icon') && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $this->config->get('config_icon'))) || is_file(DIR_IMAGE . $this->config->get('config_icon')))) {]]></add>
+        </operation>
+
+        <operation info="logo" error="skip">
+            <search position="replace"><![CDATA[if (isset($this->request->post['config_logo']) && is_file(DIR_IMAGE . $this->request->post['config_logo'])) {]]></search>
+            <add><![CDATA[if (isset($this->request->post['config_logo']) && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $this->request->post['config_logo'])) || is_file(DIR_IMAGE . $this->request->post['config_logo']))) {]]></add>
+        </operation>
+        <operation info="logo" error="skip">
+            <search position="replace"><![CDATA[} elseif ($this->config->get('config_logo') && is_file(DIR_IMAGE . $this->config->get('config_logo'))) {]]></search>
+            <add><![CDATA[} elseif ($this->config->get('config_logo') && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $this->config->get('config_logo'))) || is_file(DIR_IMAGE . $this->config->get('config_logo')))) {]]></add>
+        </operation>
+    </file>
+
+    <file name="admin/controller/sale/voucher_theme.php" error="skip">
+        <operation error="skip">
+            <search position="replace"><![CDATA[} elseif (!empty($voucher_theme_info) && is_file(DIR_IMAGE . $voucher_theme_info['image'])) {]]></search>
+            <add><![CDATA[} elseif (!empty($voucher_theme_info) && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $voucher_theme_info['image'])) || is_file(DIR_IMAGE . $voucher_theme_info['image']))) {]]></add>
+        </operation>
+    </file>
+
+    <file name="admin/controller/sale/voucher.php" error="skip">
+        <operation error="skip">
+            <search position="replace"><![CDATA[if ($voucher_theme_info && is_file(DIR_IMAGE . $voucher_theme_info['image'])) {]]></search>
+            <add><![CDATA[if ($voucher_theme_info && (($this->s3Images && $this->s3Images->hasObject(DIR_IMAGE . $voucher_theme_info['image'])) || is_file(DIR_IMAGE . $voucher_theme_info['image']))) {]]></add>
+        </operation>
+    </file>
+
+    <!-- Catalog area -->
+    <!-- For performance and simplicity we will skip is_file checks were possible -->
+    <file name="catalog/controller/*/*.php" error="skip">
+        <operation info="s3 images library" error="skip">
+            <search position="after"><![CDATA[extends Controller {]]></search>
+            <add><![CDATA[
+            private $s3Images;
+
+            public function __construct($registry) {
+                parent::__construct($registry);
+
+                $this->load->model('setting/setting');
+
+                if ($this->model_setting_setting->getSettingValue('module_aws_s3_status')) {
+                    $this->load->library('s3images/s3images');
+                    $this->s3Images = new S3images\S3images();
+                }
+            }
+            ]]></add>
+        </operation>
+    </file>
+
+    <file name="catalog/controller/common/header.php" error="skip">
+        <operation error="skip">
+            <search position="after"><![CDATA[public function index() {]]></search>
+            <add><![CDATA[
+            $this->load->model('setting/setting');
+
+            $s3Enabled = $this->model_setting_setting->getSettingValue('module_aws_s3_status');
+            ]]></add>
+        </operation>
+        <operation error="skip">
+            <search position="replace"><![CDATA[if (is_file(DIR_IMAGE . $this->config->get('config_icon'))) {]]></search>
+            <add><![CDATA[if (($s3Enabled && $this->config->get('config_icon')) || is_file(DIR_IMAGE . $this->config->get('config_icon'))) {]]></add>
+        </operation>
+        <operation error="skip">
+            <search position="replace"><![CDATA[if (is_file(DIR_IMAGE . $this->config->get('config_logo'))) {]]></search>
+            <add><![CDATA[if (($s3Enabled && $this->config->get('config_logo')) || is_file(DIR_IMAGE . $this->config->get('config_logo'))) {]]></add>
+        </operation>
+    </file>
+
+    <file name="catalog/controller/extension/total/voucher.php" error="skip">
+        <operation error="skip">
+            <search position="after"><![CDATA[public function send($route, $args, $output) {]]></search>
+            <add><![CDATA[
+            $this->load->model('setting/setting');
+
+            $s3Enabled = $this->model_setting_setting->getSettingValue('module_aws_s3_status');
+            ]]></add>
+        </operation>
+        <operation error="skip">
+            <search position="replace"><![CDATA[if (is_file(DIR_IMAGE . $voucher['image'])) {]]></search>
+            <add><![CDATA[if (($s3Enabled && $voucher['image']) || is_file(DIR_IMAGE . $voucher['image'])) {]]></add>
+        </operation>
+    </file>
+
+    <file path="catalog/controller/extension/module/" name="slideshow.php,carousel.php,banner.php" error="log">
+        <operation error="log">
+            <search position="after"><![CDATA[public function index($setting) {]]></search>
+            <add><![CDATA[
+            $this->load->model('setting/setting');
+
+            $s3Enabled = $this->model_setting_setting->getSettingValue('module_aws_s3_status');
+            ]]></add>
+        </operation>
+        <operation error="log">
+            <search position="replace"><![CDATA[if (is_file(DIR_IMAGE . $result['image'])) {]]></search>
+            <add><![CDATA[if (($s3Enabled && $result['image']) || is_file(DIR_IMAGE . $result['image'])) {]]></add>
+        </operation>
+    </file>
+
+</modification>

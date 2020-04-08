@@ -1,0 +1,12 @@
+Type: AWS::S3::BucketPolicy
+Properties:
+  Bucket: !Ref UploadedImageBucket
+  PolicyDocument:
+    Statement:
+      - Effect: Allow
+        Principal: "*" # everyone
+        Action: "s3:GetObject" # to read
+        Resource: !Join
+          - "/"
+          - - !GetAtt UploadedImageBucket.Arn
+            - "*"

@@ -1,0 +1,4 @@
+.serverless
+node_modules
+install/resource/settings.*.yml
+!install/resource/settings.example.yml
