@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modification
+        xmlns="https://github.com/vqmod/vqmod"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="https://github.com/vqmod/vqmod https://raw.githubusercontent.com/vqmod/vqmod/master/vqmod.xsd"
+>
+    <id>Quick fix for SEO urls without apache</id>
+    <version>3.0.x and above</version>
+    <vqmver required="true">2.6.0</vqmver>
+    <author>Matthew T-D</author>
+
+    <file name="catalog/controller/startup/seo_url.php" error="skip">
+        <operation error="skip">
+            <search position="before"><![CDATA[if (isset($this->request->get['_route_'])) {]]></search>
+            <add><![CDATA[
+            if (!isset($this->request->get['_route_'])) {
+                $this->request->get['_route_'] = ltrim($this->request->server['PATH_INFO'], '/');
+            }
+            ]]></add>
+        </operation>
+    </file>
+
+</modification>
