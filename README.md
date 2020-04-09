@@ -18,12 +18,11 @@ This does require technical knowledge and familiarity with AWS. Feel free to ask
 - File manager integrated with S3
 - RDS
 - Served via Cloudfront
-- compatible with vQmod* (not tested with ocmod yet)
+- compatible with vQmod (not tested with ocmod yet)
 - PHP 7.4
-- Within AWS Free Tier**
+- Within AWS Free Tier*
 
-\* requires vQmod cache files to be generated locally\
-\** obviously this depends on usage. Currently I am paying $0.50p/m for a 'Hosted Zone' 
+\* obviously this depends on usage. Currently I am paying $0.50p/m for a 'Hosted Zone' 
 
 ## Requirements
 
@@ -63,7 +62,6 @@ This will happen automatically now when you deploy. Adjust the script to match y
 Lambdas are a read only system (except for the /tmp directory)
 so some accommodations have to be made.
 This is not 100% feature complete yet.
-- vQcache files have to be generated locally first
 - file caching (in `storage/cache`) is ineffective
 - S3 product uploads/downloads
 - ocmod not working (and marketplace will not work directly)
@@ -74,7 +72,6 @@ This is not 100% feature complete yet.
 Priority can change - let me know if any of these are more important to you
 
 - S3 file uploads/downloads
-- auto create vQmod cache files?
 - OpenBay
 - ocmod
 - caching (redis)
