@@ -1,5 +1,4 @@
 <?php
-
 namespace S3images;
 
 use Aws\Result;
@@ -24,7 +23,7 @@ final class S3images
     public function listImages(string $directory = ''): array
     {
         return array_filter(
-            $this->listObjects($directory),
+            $this->listObjectsInPath($directory),
             static function ($object) {
                 return $object['type'] === 'image';
             }
@@ -34,7 +33,7 @@ final class S3images
     public function listDirectories(string $directory = ''): array
     {
         return array_filter(
-            $this->listObjects($directory),
+            $this->listObjectsInPath($directory),
             static function ($object) {
                 return $object['type'] === 'directory';
             }
@@ -43,24 +42,20 @@ final class S3images
 
     public function uploadImage($filePath, $tmpFilePath): void
     {
-        $this->s3Client->putObject(
-            [
-                'Bucket' => $this->bucketName,
-                'Key' => $this->openCartPathToBucketPath($filePath),
-                'SourceFile' => $tmpFilePath,
-            ]
-        );
+        $this->s3Client->putObject([
+            'Bucket' => $this->bucketName,
+            'Key' => $this->openCartPathToBucketPath($filePath),
+            'SourceFile' => $tmpFilePath,
+        ]);
     }
 
     public function copyImage($from, $to): void
     {
-        $this->s3Client->copyObject(
-            [
-                'Bucket' => $this->bucketName,
-                'CopySource' => $this->bucketName . '/' . $this->openCartPathToBucketPath($from),
-                'Key' => $this->openCartPathToBucketPath($to),
-            ]
-        );
+        $this->s3Client->copyObject([
+            'Bucket' => $this->bucketName,
+            'CopySource' => $this->bucketName . '/' . $this->openCartPathToBucketPath($from),
+            'Key' => $this->openCartPathToBucketPath($to),
+        ]);
     }
 
     public function downloadImageToTmpDir($imagePath): string
@@ -71,13 +66,11 @@ final class S3images
 
         $tempFilename = '/tmp/' . uniqid(basename($imagePath) . '_', true) . '.' . $extension;
 
-        $this->s3Client->getObject(
-            [
-                'Bucket' => $this->bucketName,
-                'Key' => $imagePath,
-                'SaveAs' => $tempFilename,
-            ]
-        );
+        $this->s3Client->getObject([
+            'Bucket' => $this->bucketName,
+            'Key' => $imagePath,
+            'SaveAs' => $tempFilename,
+        ]);
 
         return $tempFilename;
     }
@@ -93,12 +86,10 @@ final class S3images
 
         $path = substr($path, -1) === '/' ? $path : $path . '/';
 
-        $this->s3Client->putObject(
-            [
-                'Bucket' => $this->bucketName,
-                'Key' => $path,
-            ]
-        );
+        $this->s3Client->putObject([
+            'Bucket' => $this->bucketName,
+            'Key' => $path,
+        ]);
     }
 
     public function deleteObject($path): void
@@ -108,19 +99,16 @@ final class S3images
 
     public function generateSignedUploadUrl($path): string
     {
-        $command = $this->s3Client->getCommand(
-            'putObject',
-            [
-                'Bucket' => $this->bucketName,
-                'Key' => $this->openCartPathToBucketPath($path),
-                'ACL' => 'public-read',
-            ]
-        );
+        $command = $this->s3Client->getCommand('putObject', [
+            'Bucket' => $this->bucketName,
+            'Key' => $this->openCartPathToBucketPath($path),
+            'ACL' => 'public-read',
+        ]);
 
         return (string)$this->s3Client->createPresignedRequest($command, '+1 minutes')->getUri();
     }
 
-    private function listObjects($prefix)
+    private function listObjectsInPath($prefix)
     {
         $prefix = $this->openCartPathToBucketPath($prefix ?: '/');
 
@@ -130,50 +118,41 @@ final class S3images
 
         $this->listCache[$prefix] = [];
 
-        $results = $this->s3Client->getPaginator(
-            'ListObjectsV2',
-            [
-                'Bucket' => $this->bucketName,
-                'Prefix' => $prefix,
-                'Delimiter' => '/',
-            ]
-        );
+        $results = $this->s3Client->getPaginator('ListObjectsV2', [
+            'Bucket' => $this->bucketName,
+            'Prefix' => $prefix,
+            'Delimiter' => '/',
+        ]);
 
-        $results->each(
-            function (Result $result) use ($prefix) {
-                if (!empty($result['Contents'])) {
-                    foreach ($result['Contents'] as $image) {
-                        if (!in_array(
-                            strtolower(pathinfo($image['Key'], PATHINFO_EXTENSION)),
-                            ['jpg', 'jpeg', 'png', 'gif']
-                        )) {
-                            continue;
-                        }
-                        $this->listCache[$prefix][] = [
-                            'name' => basename($image['Key']),
-                            'type' => 'image',
-                            'path' => $this->bucketPathToOpenCartPath($image['Key']),
-                            'href' => HTTPS_CATALOG . $image['Key']
-                        ];
-                    }
-                }
-
-                if (!empty($result['CommonPrefixes'])) {
-                    foreach ($result['CommonPrefixes'] as $remoteDirectory) {
-                        $this->listCache[$prefix][] = [
-                            'name' => basename($remoteDirectory['Prefix']),
-                            'type' => 'directory',
-                            'path' => $this->bucketPathToOpenCartPath($remoteDirectory['Prefix']),
-                            'href' => null,
-                        ];
-                    }
-                }
-
-                return true;
-            }
-        )->wait();
+        $results->each($this->processResults($prefix))->wait();
 
         return $this->listCache[$prefix];
+    }
+
+    /**
+     * Bit of a quick fix to help with caching
+     * @param $prefix
+     * @return array
+     */
+    public function listObjectsInPathRecursive($prefix)
+    {
+
+        $prefix = $this->openCartPathToBucketPath($prefix ?: '/');
+
+        $results = $this->s3Client->getPaginator('ListObjectsV2', [
+            'Bucket' => $this->bucketName,
+            'Prefix' => $prefix,
+        ]);
+
+        $items = [];
+
+        $results->each(function (Result $result) use (&$items) {
+            foreach ($result['Contents'] as $image) {
+                $items[$this->bucketPathToOpenCartPath($image['Key'])] = HTTPS_CATALOG . $image['Key'];
+            }
+        })->wait();
+
+        return $items;
     }
 
     private function openCartPathToBucketPath($imagePath): string
@@ -192,5 +171,44 @@ final class S3images
         }
 
         return rtrim($bucketPath, '/');
+    }
+
+    /**
+     * @param $prefix
+     * @return \Closure
+     */
+    private function processResults($prefix): \Closure
+    {
+        return function (Result $result) use ($prefix) {
+            if (!empty($result['Contents'])) {
+                foreach ($result['Contents'] as $image) {
+                    if (!in_array(
+                        strtolower(pathinfo($image['Key'], PATHINFO_EXTENSION)),
+                        ['jpg', 'jpeg', 'png', 'gif']
+                    )) {
+                        continue;
+                    }
+                    $this->listCache[$prefix][] = [
+                        'name' => basename($image['Key']),
+                        'type' => 'image',
+                        'path' => $this->bucketPathToOpenCartPath($image['Key']),
+                        'href' => HTTPS_CATALOG . $image['Key']
+                    ];
+                }
+            }
+
+            if (!empty($result['CommonPrefixes'])) {
+                foreach ($result['CommonPrefixes'] as $remoteDirectory) {
+                    $this->listCache[$prefix][] = [
+                        'name' => basename($remoteDirectory['Prefix']),
+                        'type' => 'directory',
+                        'path' => $this->bucketPathToOpenCartPath($remoteDirectory['Prefix']),
+                        'href' => null,
+                    ];
+                }
+            }
+
+            return true;
+        };
     }
 }

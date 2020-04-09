@@ -13,6 +13,8 @@
         <operation error="skip" info="Add method to resize images and upload them to s3">
             <search position="before"><![CDATA[public function resize($filename, $width, $height) {]]></search>
             <add><![CDATA[
+        const RESIZED_IMAGE_CACHE_KEY = 'resized_images';
+
         static private $images = [];
 
         private function getResizedImageFromS3($filename, $width, $height) {
@@ -25,6 +27,9 @@
             $image_new = 'cache/' . utf8_substr($filename, 0, utf8_strrpos($filename, '.')) . '-' . $width . 'x' . $height . '.' . $extension;
             $cachedImageBucketPath = DIR_IMAGE . $image_new;
 
+            if (empty(static::$images[$image_new])) {
+                $this->populateResizedImageCache();
+            }
             if (isset(static::$images[$image_new])) {
                 return static::$images[$image_new];
             }
@@ -64,6 +69,18 @@
             static::$images[$image_new] = HTTPS_CATALOG . DIR_IMAGE . $image_new;
 
             return static::$images[$image_new];
+        }
+
+        private function populateResizedImageCache(): void
+        {
+            if ($cache = $this->cache->get(self::RESIZED_IMAGE_CACHE_KEY)) {
+                static::$images = $cache;
+            }
+
+            $this->load->library('s3images/s3images');
+            $s3Images = new S3images\S3images();
+
+            $this->cache->set(self::RESIZED_IMAGE_CACHE_KEY, $s3Images->listObjectsInPathRecursive('cache'));
         }
             ]]></add>
         </operation>
