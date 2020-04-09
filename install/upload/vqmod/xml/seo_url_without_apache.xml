@@ -14,7 +14,12 @@
             <search position="before"><![CDATA[if (isset($this->request->get['_route_'])) {]]></search>
             <add><![CDATA[
             if ($this->config->get('config_seo_url') && !isset($this->request->get['_route_'])) {
-                $this->request->get['_route_'] = ltrim($this->request->server['PATH_INFO'] ?? '', '/');
+                $matches = [];
+                preg_match('/^([^?]*)/', $_SERVER['REQUEST_URI'], $matches);
+
+                if ($matches && $matches[0] !== '/index.php') {
+                    $this->request->get['_route_'] = ltrim($matches[0], '/');
+                }
             }
             ]]></add>
         </operation>
