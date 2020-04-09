@@ -13,8 +13,8 @@
         <operation error="skip">
             <search position="before"><![CDATA[if (isset($this->request->get['_route_'])) {]]></search>
             <add><![CDATA[
-            if (!isset($this->request->get['_route_'])) {
-                $this->request->get['_route_'] = ltrim($this->request->server['PATH_INFO'], '/');
+            if ($this->config->get('config_seo_url') && !isset($this->request->get['_route_'])) {
+                $this->request->get['_route_'] = ltrim($this->request->server['PATH_INFO'] ?? '', '/');
             }
             ]]></add>
         </operation>
