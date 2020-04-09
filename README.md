@@ -65,7 +65,6 @@ so some accommodations have to be made.
 This is not 100% feature complete yet.
 - vQcache files have to be generated locally first
 - file caching (in `storage/cache`) is ineffective
-- SEO urls do not work
 - S3 product uploads/downloads
 - ocmod not working (and marketplace will not work directly)
 - No multistore support
@@ -74,7 +73,6 @@ This is not 100% feature complete yet.
 
 Priority can change - let me know if any of these are more important to you
 
-- SEO urls
 - S3 file uploads/downloads
 - auto create vQmod cache files?
 - OpenBay
